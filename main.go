@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"fmt"
 	"log"
+	"math/rand"
 	"os"
 	"os/exec"
 
@@ -18,6 +19,10 @@ type spriter struct {
 var player spriter
 var ghosts []*spriter
 var maze []string
+
+var score int // 分数
+var numDots int
+var lives = 1
 
 func main() {
 	// initiallize the game
@@ -41,13 +46,18 @@ func main() {
 		}
 		// process movement
 		movePlayer(input)
-		if input == "ESC" {
-			break
-		}
+		moveGhosts()
 
 		// process collisions
+		for _, g := range ghosts {
+			if player == *g {
+				lives = 0
+			}
+		}
 		// check game over
-		// temp : break infinite loop
+		if input == "ESC" || numDots == 0 || lives <= 0 {
+			break
+		}
 		// break
 	}
 }
@@ -69,6 +79,8 @@ func loadMaze(file string) error {
 				player = spriter{row, col} // 定位玩家的位置
 			case 'G':
 				ghosts = append(ghosts, &spriter{row, col}) // 鬼的位置
+			case '.':
+				numDots++
 			}
 		}
 	}
@@ -81,6 +93,9 @@ func printScreen() {
 		for _, chr := range line {
 			switch chr {
 			case '#':
+				fmt.Printf("%c", chr)
+				fallthrough
+			case '.':
 				fmt.Printf("%c", chr)
 			default:
 				fmt.Print(" ")
@@ -95,6 +110,7 @@ func printScreen() {
 		fmt.Print("G")
 	}
 	simpleansi.MoveCursor(len(maze)+1, 0)
+	fmt.Println("Score:", score, "\tLives:", lives)
 }
 
 func initialize() {
@@ -168,7 +184,7 @@ func makeMove(oldRow, oldCol int, dir string) (newRow, newCol int) {
 		}
 	}
 
-	if maze[newRow][newCol] == '#' {
+	if maze[newRow][newCol] == '#' { // todo index 溢出问题
 		newRow = oldRow
 		newCol = oldCol
 	}
@@ -179,4 +195,28 @@ func makeMove(oldRow, oldCol int, dir string) (newRow, newCol int) {
 func movePlayer(dir string) {
 	// 移动玩家位置
 	player.row, player.col = makeMove(player.row, player.col, dir)
+	switch maze[player.row][player.col] {
+	case '.':
+		numDots--
+		score++
+		maze[player.row] = maze[player.row][0:player.col] + " " + maze[player.row][player.col+1:]
+	}
+}
+
+func drawDirection() string {
+	dir := rand.Intn(4)
+	move := map[int]string{
+		0: "UP",
+		1: "DOWN",
+		2: "RIGHT",
+		3: "LEFT",
+	}
+	return move[dir]
+}
+
+func moveGhosts() {
+	for _, g := range ghosts {
+		dir := drawDirection()
+		g.row, g.col = makeMove(g.row, g.col, dir)
+	}
 }
